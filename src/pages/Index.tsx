@@ -64,7 +64,9 @@ interface Appointment {
   id: string;
   date: Date;
   clientName: string;
-  service: string;
+  car: string;
+  plateNumber: string;
+  phone: string;
   time: string;
 }
 
@@ -86,8 +88,27 @@ interface VehicleExpense {
   date: string;
 }
 
+interface RepairJob {
+  id: string;
+  carBrand: string;
+  carModel: string;
+  clientName: string;
+  clientPhone: string;
+  parts: RepairPart[];
+  notes: string;
+  status: 'waiting' | 'in_progress' | 'completed';
+  createdAt: string;
+}
+
+interface RepairPart {
+  id: string;
+  name: string;
+  quantity: number;
+  purchased: boolean;
+}
+
 const Index = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('repairs');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedCategory, setSelectedCategory] = useState('');
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
@@ -95,17 +116,120 @@ const Index = () => {
   const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [isRepairDialogOpen, setIsRepairDialogOpen] = useState(false);
+  const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = useState(false);
+  const [selectedRepair, setSelectedRepair] = useState<RepairJob | null>(null);
+  const [newPartName, setNewPartName] = useState('');
+  const [newPartQuantity, setNewPartQuantity] = useState(1);
 
   const [clients, setClients] = useState<Client[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [repairJobs, setRepairJobs] = useState<RepairJob[]>([]);
 
   const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const profit = totalIncome - totalExpenses;
+
+  const addRepairJob = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newJob: RepairJob = {
+      id: Date.now().toString(),
+      carBrand: formData.get('carBrand') as string,
+      carModel: formData.get('carModel') as string,
+      clientName: formData.get('clientName') as string,
+      clientPhone: formData.get('clientPhone') as string,
+      parts: [],
+      notes: formData.get('notes') as string,
+      status: 'waiting',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setRepairJobs([newJob, ...repairJobs]);
+    toast.success('Автомобиль добавлен в ремонт');
+    setIsRepairDialogOpen(false);
+    e.currentTarget.reset();
+  };
+
+  const addPartToRepair = (repairId: string) => {
+    if (!newPartName.trim()) {
+      toast.error('Введите название детали');
+      return;
+    }
+    
+    const newPart: RepairPart = {
+      id: Date.now().toString(),
+      name: newPartName,
+      quantity: newPartQuantity,
+      purchased: false,
+    };
+    
+    setRepairJobs(
+      repairJobs.map((job) =>
+        job.id === repairId ? { ...job, parts: [...job.parts, newPart] } : job
+      )
+    );
+    setNewPartName('');
+    setNewPartQuantity(1);
+    toast.success('Деталь добавлена');
+  };
+
+  const togglePartPurchased = (repairId: string, partId: string) => {
+    setRepairJobs(
+      repairJobs.map((job) =>
+        job.id === repairId
+          ? {
+              ...job,
+              parts: job.parts.map((part) =>
+                part.id === partId ? { ...part, purchased: !part.purchased } : part
+              ),
+            }
+          : job
+      )
+    );
+  };
+
+  const updateRepairStatus = (repairId: string, status: RepairJob['status']) => {
+    setRepairJobs(repairJobs.map((job) => (job.id === repairId ? { ...job, status } : job)));
+    toast.success('Статус обновлён');
+  };
+
+  const deleteRepairJob = (id: string) => {
+    setRepairJobs(repairJobs.filter((job) => job.id !== id));
+    toast.success('Запись удалена');
+  };
+
+  const addAppointment = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    if (!selectedDate) {
+      toast.error('Выберите дату');
+      return;
+    }
+    
+    const newAppointment: Appointment = {
+      id: Date.now().toString(),
+      date: selectedDate,
+      clientName: formData.get('clientName') as string,
+      car: formData.get('car') as string,
+      plateNumber: formData.get('plateNumber') as string,
+      phone: formData.get('phone') as string,
+      time: formData.get('time') as string,
+    };
+    
+    setAppointments([...appointments, newAppointment]);
+    toast.success('Клиент записан');
+    setIsAppointmentDialogOpen(false);
+    e.currentTarget.reset();
+  };
+
+  const deleteAppointment = (id: string) => {
+    setAppointments(appointments.filter((apt) => apt.id !== id));
+    toast.success('Запись удалена');
+  };
 
   const addClient = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -236,6 +360,16 @@ const Index = () => {
     e.currentTarget.reset();
   };
 
+  const getStatusBadge = (status: RepairJob['status']) => {
+    const variants = {
+      waiting: { label: 'Ожидание', className: 'bg-yellow-500/10 text-yellow-500' },
+      in_progress: { label: 'В работе', className: 'bg-blue-500/10 text-blue-500' },
+      completed: { label: 'Завершён', className: 'bg-green-500/10 text-green-500' },
+    };
+    const variant = variants[status];
+    return <Badge className={variant.className}>{variant.label}</Badge>;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
@@ -257,6 +391,10 @@ const Index = () => {
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="repairs" className="gap-2">
+              <Icon name="Wrench" size={18} />
+              <span className="hidden sm:inline">В ремонте</span>
+            </TabsTrigger>
             <TabsTrigger value="dashboard" className="gap-2">
               <Icon name="LayoutDashboard" size={18} />
               <span className="hidden sm:inline">Главная</span>
@@ -269,9 +407,9 @@ const Index = () => {
               <Icon name="Users" size={18} />
               <span className="hidden sm:inline">Клиенты</span>
             </TabsTrigger>
-            <TabsTrigger value="expenses" className="gap-2">
+            <TabsTrigger value="finances" className="gap-2">
               <Icon name="Wallet" size={18} />
-              <span className="hidden sm:inline">Расходы</span>
+              <span className="hidden sm:inline">Финансы</span>
             </TabsTrigger>
             <TabsTrigger value="vehicles" className="gap-2">
               <Icon name="Car" size={18} />
@@ -282,6 +420,192 @@ const Index = () => {
               <span className="hidden sm:inline">Календарь</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="repairs" className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Автомобили в ремонте</h2>
+              <Dialog open={isRepairDialogOpen} onOpenChange={setIsRepairDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Icon name="Plus" size={18} />
+                    Добавить автомобиль
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Новый автомобиль в ремонт</DialogTitle>
+                    <DialogDescription>Заполните информацию об автомобиле клиента</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={addRepairJob} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="carBrand">Марка</Label>
+                        <Input id="carBrand" name="carBrand" placeholder="Toyota" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="carModel">Модель</Label>
+                        <Input id="carModel" name="carModel" placeholder="Camry" required />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="clientName">Имя клиента</Label>
+                      <Input id="clientName" name="clientName" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="clientPhone">Контактный номер</Label>
+                      <Input id="clientPhone" name="clientPhone" type="tel" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Заметки</Label>
+                      <Textarea id="notes" name="notes" placeholder="Описание работ, проблемы..." />
+                    </div>
+                    <Button type="submit" className="w-full">Добавить</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {repairJobs.length === 0 ? (
+              <Card>
+                <CardContent className="py-12">
+                  <p className="text-center text-muted-foreground">Нет автомобилей в ремонте</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {repairJobs.map((job) => (
+                  <Card key={job.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="flex items-center gap-2">
+                            <Icon name="Car" size={20} />
+                            {job.carBrand} {job.carModel}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">{job.clientName}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(job.status)}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost">
+                                <Icon name="Trash2" size={16} className="text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Это действие нельзя отменить.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteRepairJob(job.id)}>
+                                  Удалить
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Icon name="Phone" size={16} className="text-muted-foreground" />
+                          <span>{job.clientPhone}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Icon name="Calendar" size={16} className="text-muted-foreground" />
+                          <span>Добавлено: {job.createdAt}</span>
+                        </div>
+                        {job.notes && (
+                          <div className="pt-2 border-t">
+                            <p className="text-muted-foreground text-xs mb-1">Заметки:</p>
+                            <p className="text-sm">{job.notes}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Статус работы</Label>
+                        <Select
+                          value={job.status}
+                          onValueChange={(value) => updateRepairStatus(job.id, value as RepairJob['status'])}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="waiting">Ожидание</SelectItem>
+                            <SelectItem value="in_progress">В работе</SelectItem>
+                            <SelectItem value="completed">Завершён</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold text-sm mb-3">Детали к покупке</h4>
+                        
+                        <div className="flex gap-2 mb-3">
+                          <Input
+                            placeholder="Название детали"
+                            value={newPartName}
+                            onChange={(e) => setNewPartName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addPartToRepair(job.id))}
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            value={newPartQuantity}
+                            onChange={(e) => setNewPartQuantity(Number(e.target.value))}
+                            className="w-20"
+                          />
+                          <Button size="sm" onClick={() => addPartToRepair(job.id)}>
+                            <Icon name="Plus" size={14} />
+                          </Button>
+                        </div>
+
+                        {job.parts.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-2">
+                            Нет деталей
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {job.parts.map((part) => (
+                              <div
+                                key={part.id}
+                                className="flex items-center justify-between text-sm p-2 bg-muted rounded"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => togglePartPurchased(job.id, part.id)}
+                                  >
+                                    <Icon
+                                      name={part.purchased ? 'CheckSquare' : 'Square'}
+                                      size={16}
+                                      className={part.purchased ? 'text-green-500' : ''}
+                                    />
+                                  </Button>
+                                  <span className={part.purchased ? 'line-through text-muted-foreground' : ''}>
+                                    {part.name} × {part.quantity}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-6 animate-fade-in">
             <div className="grid gap-4 md:grid-cols-3">
@@ -323,8 +647,36 @@ const Index = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Icon name="Bell" size={20} />
-                    Предстоящие записи
+                    <Icon name="Wrench" size={20} />
+                    В ремонте
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {repairJobs.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Нет автомобилей в ремонте</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {repairJobs.slice(0, 3).map((job) => (
+                        <div key={job.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div>
+                            <p className="font-medium">
+                              {job.carBrand} {job.carModel}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{job.clientName}</p>
+                          </div>
+                          {getStatusBadge(job.status)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="Calendar" size={20} />
+                    Ближайшие записи
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -336,103 +688,9 @@ const Index = () => {
                         <div key={apt.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div>
                             <p className="font-medium">{apt.clientName}</p>
-                            <p className="text-sm text-muted-foreground">{apt.service}</p>
+                            <p className="text-sm text-muted-foreground">{apt.car}</p>
                           </div>
                           <Badge variant="outline">{apt.time}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Icon name="DollarSign" size={20} />
-                      Доходы
-                    </CardTitle>
-                    <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" onClick={() => setEditingIncome(null)}>
-                          <Icon name="Plus" size={16} />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{editingIncome ? 'Редактировать доход' : 'Новый доход'}</DialogTitle>
-                          <DialogDescription>Заполните информацию о доходе</DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={addOrUpdateIncome} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="income-date">Дата</Label>
-                            <Input id="income-date" name="date" type="date" defaultValue={editingIncome?.date} required />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="source">Источник</Label>
-                            <Input id="source" name="source" defaultValue={editingIncome?.source} required />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="income-amount">Сумма (₽)</Label>
-                            <Input id="income-amount" name="amount" type="number" defaultValue={editingIncome?.amount} required />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="income-description">Описание</Label>
-                            <Textarea id="income-description" name="description" defaultValue={editingIncome?.description} required />
-                          </div>
-                          <Button type="submit" className="w-full">{editingIncome ? 'Сохранить' : 'Добавить'}</Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {incomes.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">Добавьте первый доход</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {incomes.map((income) => (
-                        <div key={income.id} className="flex items-center justify-between p-3 bg-muted rounded-lg group">
-                          <div className="flex-1">
-                            <p className="font-medium">{income.source}</p>
-                            <p className="text-sm text-muted-foreground">{income.description}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{income.date}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{income.amount.toLocaleString()} ₽</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingIncome(income);
-                                setIsIncomeDialogOpen(true);
-                              }}
-                            >
-                              <Icon name="Pencil" size={14} />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="ghost">
-                                  <Icon name="Trash2" size={14} className="text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Удалить доход?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Это действие нельзя отменить.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deleteIncome(income.id)}>
-                                    Удалить
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -592,127 +850,215 @@ const Index = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="expenses" className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Учёт расходов</h2>
-              <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2" onClick={() => setEditingExpense(null)}>
-                    <Icon name="Plus" size={18} />
-                    Добавить расход
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{editingExpense ? 'Редактировать расход' : 'Новый расход'}</DialogTitle>
-                    <DialogDescription>Заполните информацию о расходе</DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={addOrUpdateExpense} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expense-date">Дата</Label>
-                      <Input id="expense-date" name="date" type="date" defaultValue={editingExpense?.date} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Категория</Label>
-                      <Select
-                        value={selectedCategory || editingExpense?.category}
-                        onValueChange={setSelectedCategory}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Выберите категорию" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Запчасти">Запчасти</SelectItem>
-                          <SelectItem value="Аренда">Аренда</SelectItem>
-                          <SelectItem value="Инструменты">Инструменты</SelectItem>
-                          <SelectItem value="Зарплата">Зарплата</SelectItem>
-                          <SelectItem value="Коммунальные услуги">Коммунальные услуги</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">Сумма (₽)</Label>
-                      <Input id="amount" name="amount" type="number" defaultValue={editingExpense?.amount} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Описание</Label>
-                      <Textarea id="description" name="description" defaultValue={editingExpense?.description} required />
-                    </div>
-                    <Button type="submit" className="w-full">{editingExpense ? 'Сохранить' : 'Добавить'}</Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
+          <TabsContent value="finances" className="space-y-6 animate-fade-in">
+            <h2 className="text-2xl font-bold">Доходы и расходы</h2>
 
-            <Card>
-              <CardContent className="p-0">
-                {expenses.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-12">Добавьте первый расход</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left p-4 font-medium">Дата</th>
-                          <th className="text-left p-4 font-medium">Категория</th>
-                          <th className="text-left p-4 font-medium">Описание</th>
-                          <th className="text-right p-4 font-medium">Сумма</th>
-                          <th className="text-right p-4 font-medium">Действия</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expenses.map((expense, idx) => (
-                          <tr key={expense.id} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}>
-                            <td className="p-4">{expense.date}</td>
-                            <td className="p-4">
-                              <Badge variant="outline">{expense.category}</Badge>
-                            </td>
-                            <td className="p-4">{expense.description}</td>
-                            <td className="p-4 text-right font-semibold">{expense.amount.toLocaleString()} ₽</td>
-                            <td className="p-4">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setEditingExpense(expense);
-                                    setSelectedCategory(expense.category);
-                                    setIsExpenseDialogOpen(true);
-                                  }}
-                                >
-                                  <Icon name="Pencil" size={14} />
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="ghost">
-                                      <Icon name="Trash2" size={14} className="text-destructive" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Удалить расход?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Это действие нельзя отменить.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => deleteExpense(expense.id)}>
-                                        Удалить
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Icon name="TrendingUp" size={20} className="text-green-500" />
+                      Доходы
+                    </CardTitle>
+                    <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" onClick={() => setEditingIncome(null)}>
+                          <Icon name="Plus" size={16} />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{editingIncome ? 'Редактировать доход' : 'Новый доход'}</DialogTitle>
+                          <DialogDescription>Заполните информацию о доходе</DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={addOrUpdateIncome} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="income-date">Дата</Label>
+                            <Input id="income-date" name="date" type="date" defaultValue={editingIncome?.date} required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="source">Источник</Label>
+                            <Input id="source" name="source" defaultValue={editingIncome?.source} required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="income-amount">Сумма (₽)</Label>
+                            <Input id="income-amount" name="amount" type="number" defaultValue={editingIncome?.amount} required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="income-description">Описание</Label>
+                            <Textarea id="income-description" name="description" defaultValue={editingIncome?.description} required />
+                          </div>
+                          <Button type="submit" className="w-full">{editingIncome ? 'Сохранить' : 'Добавить'}</Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  {incomes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Добавьте первый доход</p>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {incomes.map((income) => (
+                        <div key={income.id} className="flex items-center justify-between p-3 bg-muted rounded-lg group">
+                          <div className="flex-1">
+                            <p className="font-medium">{income.source}</p>
+                            <p className="text-sm text-muted-foreground">{income.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{income.date}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-green-600">{income.amount.toLocaleString()} ₽</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingIncome(income);
+                                setIsIncomeDialogOpen(true);
+                              }}
+                            >
+                              <Icon name="Pencil" size={14} />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost">
+                                  <Icon name="Trash2" size={14} className="text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить доход?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Это действие нельзя отменить.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteIncome(income.id)}>
+                                    Удалить
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Icon name="TrendingDown" size={20} className="text-red-500" />
+                      Расходы
+                    </CardTitle>
+                    <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" onClick={() => setEditingExpense(null)}>
+                          <Icon name="Plus" size={16} />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{editingExpense ? 'Редактировать расход' : 'Новый расход'}</DialogTitle>
+                          <DialogDescription>Заполните информацию о расходе</DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={addOrUpdateExpense} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="expense-date">Дата</Label>
+                            <Input id="expense-date" name="date" type="date" defaultValue={editingExpense?.date} required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="category">Категория</Label>
+                            <Select
+                              value={selectedCategory || editingExpense?.category}
+                              onValueChange={setSelectedCategory}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Выберите категорию" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Запчасти">Запчасти</SelectItem>
+                                <SelectItem value="Аренда">Аренда</SelectItem>
+                                <SelectItem value="Инструменты">Инструменты</SelectItem>
+                                <SelectItem value="Зарплата">Зарплата</SelectItem>
+                                <SelectItem value="Коммунальные услуги">Коммунальные услуги</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="amount">Сумма (₽)</Label>
+                            <Input id="amount" name="amount" type="number" defaultValue={editingExpense?.amount} required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="description">Описание</Label>
+                            <Textarea id="description" name="description" defaultValue={editingExpense?.description} required />
+                          </div>
+                          <Button type="submit" className="w-full">{editingExpense ? 'Сохранить' : 'Добавить'}</Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {expenses.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Добавьте первый расход</p>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {expenses.map((expense) => (
+                        <div key={expense.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs">{expense.category}</Badge>
+                            </div>
+                            <p className="text-sm">{expense.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{expense.date}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-red-600">{expense.amount.toLocaleString()} ₽</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingExpense(expense);
+                                setSelectedCategory(expense.category);
+                                setIsExpenseDialogOpen(true);
+                              }}
+                            >
+                              <Icon name="Pencil" size={14} />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost">
+                                  <Icon name="Trash2" size={14} className="text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить расход?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Это действие нельзя отменить.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteExpense(expense.id)}>
+                                    Удалить
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="vehicles" className="space-y-6 animate-fade-in">
@@ -907,7 +1253,47 @@ const Index = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Записи на {selectedDate?.toLocaleDateString('ru-RU')}</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Записи на {selectedDate?.toLocaleDateString('ru-RU')}</CardTitle>
+                    <Dialog open={isAppointmentDialogOpen} onOpenChange={setIsAppointmentDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Icon name="Plus" size={16} />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Новая запись</DialogTitle>
+                          <DialogDescription>
+                            Запись на {selectedDate?.toLocaleDateString('ru-RU')}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={addAppointment} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="apt-clientName">Имя клиента</Label>
+                            <Input id="apt-clientName" name="clientName" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="apt-car">Автомобиль</Label>
+                            <Input id="apt-car" name="car" placeholder="Toyota Camry" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="plateNumber">Госномер</Label>
+                            <Input id="plateNumber" name="plateNumber" placeholder="А123БВ777" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="apt-phone">Телефон</Label>
+                            <Input id="apt-phone" name="phone" type="tel" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="time">Время</Label>
+                            <Input id="time" name="time" type="time" required />
+                          </div>
+                          <Button type="submit" className="w-full">Записать</Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {appointments.filter(
@@ -920,10 +1306,37 @@ const Index = () => {
                       .map((apt) => (
                         <div key={apt.id} className="p-4 bg-muted rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <p className="font-semibold">{apt.clientName}</p>
-                            <Badge>{apt.time}</Badge>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold">{apt.clientName}</p>
+                              <Badge>{apt.time}</Badge>
+                            </div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost">
+                                  <Icon name="Trash2" size={14} className="text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Это действие нельзя отменить.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteAppointment(apt.id)}>
+                                    Удалить
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
-                          <p className="text-sm text-muted-foreground">{apt.service}</p>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            <p>🚗 {apt.car}</p>
+                            <p>🔢 {apt.plateNumber}</p>
+                            <p>📞 {apt.phone}</p>
+                          </div>
                         </div>
                       ))
                   )}
