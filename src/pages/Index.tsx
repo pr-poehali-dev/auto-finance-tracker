@@ -390,7 +390,7 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="repairs" className="gap-2">
               <Icon name="Wrench" size={18} />
               <span className="hidden sm:inline">В ремонте</span>
@@ -399,17 +399,9 @@ const Index = () => {
               <Icon name="LayoutDashboard" size={18} />
               <span className="hidden sm:inline">Главная</span>
             </TabsTrigger>
-            <TabsTrigger value="stats" className="gap-2">
-              <Icon name="TrendingUp" size={18} />
-              <span className="hidden sm:inline">Статистика</span>
-            </TabsTrigger>
             <TabsTrigger value="clients" className="gap-2">
               <Icon name="Users" size={18} />
               <span className="hidden sm:inline">Клиенты</span>
-            </TabsTrigger>
-            <TabsTrigger value="finances" className="gap-2">
-              <Icon name="Wallet" size={18} />
-              <span className="hidden sm:inline">Финансы</span>
             </TabsTrigger>
             <TabsTrigger value="vehicles" className="gap-2">
               <Icon name="Car" size={18} />
@@ -418,6 +410,10 @@ const Index = () => {
             <TabsTrigger value="calendar" className="gap-2">
               <Icon name="Calendar" size={18} />
               <span className="hidden sm:inline">Календарь</span>
+            </TabsTrigger>
+            <TabsTrigger value="finances" className="gap-2">
+              <Icon name="Wallet" size={18} />
+              <span className="hidden sm:inline">Финансы</span>
             </TabsTrigger>
           </TabsList>
 
@@ -700,65 +696,7 @@ const Index = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="stats" className="space-y-6 animate-fade-in">
-            <Card>
-              <CardHeader>
-                <CardTitle>Статистика доходов и расходов</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-8">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Доходы</span>
-                      <span className="text-sm font-bold">{totalIncome.toLocaleString()} ₽</span>
-                    </div>
-                    <div className="h-4 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-green-500 transition-all"
-                        style={{
-                          width: totalIncome > 0 ? `${Math.min((totalIncome / (totalIncome + totalExpenses)) * 100, 100)}%` : '0%',
-                        }}
-                      />
-                    </div>
-                  </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Расходы</span>
-                      <span className="text-sm font-bold">{totalExpenses.toLocaleString()} ₽</span>
-                    </div>
-                    <div className="h-4 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-red-500 transition-all"
-                        style={{
-                          width: totalExpenses > 0 ? `${Math.min((totalExpenses / (totalIncome + totalExpenses)) * 100, 100)}%` : '0%',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {expenses.length > 0 && (
-                    <div className="pt-6 border-t">
-                      <h3 className="font-semibold mb-4">Расходы по категориям</h3>
-                      <div className="space-y-4">
-                        {Object.entries(
-                          expenses.reduce((acc: { [key: string]: number }, exp) => {
-                            acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-                            return acc;
-                          }, {})
-                        ).map(([category, amount]) => (
-                          <div key={category} className="flex items-center justify-between">
-                            <span className="text-sm">{category}</span>
-                            <span className="font-semibold">{amount.toLocaleString()} ₽</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="clients" className="space-y-6 animate-fade-in">
             <div className="flex justify-between items-center">
