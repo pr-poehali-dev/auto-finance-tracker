@@ -52,6 +52,7 @@ interface Appointment {
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   const [clients, setClients] = useState<Client[]>([
     { id: '1', name: 'Иван Петров', phone: '+7 (999) 123-45-67', car: 'Toyota Camry', lastVisit: '2024-12-05' },
@@ -92,15 +93,22 @@ const Index = () => {
   const addExpense = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    
+    if (!selectedCategory) {
+      toast.error('Выберите категорию');
+      return;
+    }
+    
     const newExpense: Expense = {
       id: Date.now().toString(),
       date: new Date().toISOString().split('T')[0],
-      category: formData.get('category') as string,
+      category: selectedCategory,
       amount: Number(formData.get('amount')),
       description: formData.get('description') as string,
     };
     setExpenses([...expenses, newExpense]);
     toast.success('Расход добавлен');
+    setSelectedCategory('');
     e.currentTarget.reset();
   };
 
@@ -356,7 +364,7 @@ const Index = () => {
                   <form onSubmit={addExpense} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="category">Категория</Label>
-                      <Select name="category" required>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите категорию" />
                         </SelectTrigger>
